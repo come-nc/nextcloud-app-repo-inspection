@@ -93,18 +93,12 @@ function getAppInfo ($client, string $org, string $app, string $reference): Simp
 	$fileContent = $client->api('repo')->contents()->download($org, $app, 'appinfo/info.xml', $reference);
 	return new SimpleXMLElement($fileContent);
 }
-/*
-["open_issues"]=>
-  int(15)
- ["open_issues_count"]=>
-  int(15)*/
 
 /* TODO
- * Deviner si les workflow ont du sens?
- * Checker les releases, sauf si bundle
- * Vérifier les commandes composer?
- * Checker si les workflows diffèrent
- * Checker les versions compatibles déclarées dans master et stable24
- * Checker les versions PHP compatibles pour chaque branche?
- * Checker les dépendances composer
+ * Add issue and PR count?
+ * Detect if a missing workflow is needed or not depending on conditions?
+ * Detect or hardcode bundled app and do not search for their releases
+ * Check if composer scripts are there? (lint, psalm, … workflows are using them)
+ * For existing workflows detect differences with parent one
+ * Check for missing composer dependencies like nextcloud/coding-standard, christophwurst/nextcloud or vimeo/psalm?
  */
