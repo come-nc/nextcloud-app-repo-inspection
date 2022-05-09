@@ -15,6 +15,8 @@ class Tool
 
 	private string $organization;
 
+	private array $bundled = ['activity', 'circles', 'files_pdfviewer', 'files_rightclick', 'files_videoplayer', 'firstrunwizard', 'logreader', 'nextcloud_announcements', 'notifications', 'password_policy', 'photos', 'privacy', 'recommendations', 'serverinfo', 'support', 'survey_client', 'text', 'viewer'];
+
 	public function __construct(string $organization, string $token) {
 		$this->organization = $organization;
 
@@ -89,21 +91,25 @@ class Tool
 					throw $e;
 				}
 			}
-			try {
-				$lastRelease = $this->client->api('repo')->releases()->latest($repo['owner']['login'], $repo['name']);
-				$appInfo = $this->getAppInfo($repo['owner']['login'], $repo['name'], $lastRelease['tag_name']);
-				echo "* Last release: {$lastRelease['name']} ({$lastRelease['tag_name']}) - version {$appInfo->version} (Nextcloud {$appInfo->dependencies->nextcloud['min-version']} to {$appInfo->dependencies->nextcloud['max-version']})\n";
-			} catch (Github\Exception\RuntimeException $e) {
-				if ($e->getMessage() === 'Not Found') {
-					echo "* No release yet\n";
-				} else {
-					throw $e;
+			if (in_array($repo['name'], $this->bundled)) {
+				echo "* Bundled app\n";
+			} else {
+				try {
+					$lastRelease = $this->client->api('repo')->releases()->latest($repo['owner']['login'], $repo['name']);
+					$appInfo = $this->getAppInfo($repo['owner']['login'], $repo['name'], $lastRelease['tag_name']);
+					echo "* Last release: {$lastRelease['name']} ({$lastRelease['tag_name']}) - version {$appInfo->version} (Nextcloud {$appInfo->dependencies->nextcloud['min-version']} to {$appInfo->dependencies->nextcloud['max-version']})\n";
+				} catch (Github\Exception\RuntimeException $e) {
+					if ($e->getMessage() === 'Not Found') {
+						echo "* No release yet\n";
+					} else {
+						throw $e;
+					}
 				}
-			}
-			$lastPrerelease = $this->client->api('repo')->releases()->all($repo['owner']['login'], $repo['name'])[0];
-			if ($lastPrerelease['tag_name'] !== ($lastRelease['tag_name'] ?? null)) {
-				$appInfo = $this->getAppInfo($repo['owner']['login'], $repo['name'], $lastPrerelease['tag_name']);
-				echo "* Last release: {$lastPrerelease['name']} ({$lastPrerelease['tag_name']}) - version {$appInfo->version} (Nextcloud {$appInfo->dependencies->nextcloud['min-version']} to {$appInfo->dependencies->nextcloud['max-version']})\n";
+				$lastPrerelease = $this->client->api('repo')->releases()->all($repo['owner']['login'], $repo['name'])[0] ?? [];
+				if (($lastPrerelease['tag_name'] ?? null) !== ($lastRelease['tag_name'] ?? null)) {
+					$appInfo = $this->getAppInfo($repo['owner']['login'], $repo['name'], $lastPrerelease['tag_name']);
+					echo "* Last release: {$lastPrerelease['name']} ({$lastPrerelease['tag_name']}) - version {$appInfo->version} (Nextcloud {$appInfo->dependencies->nextcloud['min-version']} to {$appInfo->dependencies->nextcloud['max-version']})\n";
+				}
 			}
 			foreach ($workflows as $workflow) {
 				if (
@@ -129,7 +135,6 @@ $tool->run($argv);
 /* TODO
  * Add issue and PR count?
  * Detect if a missing workflow is needed or not depending on conditions?
- * Detect or hardcode bundled app and do not search for their releases
  * Check if composer scripts are there? (lint, psalm, … workflows are using them)
  * For existing workflows detect differences with parent one
  * Check for missing composer dependencies like nextcloud/coding-standard, christophwurst/nextcloud or vimeo/psalm?
