@@ -17,6 +17,10 @@ class Tool
 
 	private array $bundled = ['activity', 'circles', 'files_pdfviewer', 'files_rightclick', 'files_videoplayer', 'firstrunwizard', 'logreader', 'nextcloud_announcements', 'notifications', 'password_policy', 'photos', 'privacy', 'recommendations', 'serverinfo', 'support', 'survey_client', 'text', 'viewer'];
 
+	private array $workflowsOnlyForBundled = ['block-merge-eol.yml', 'block-merge-freeze.yml'];
+
+	private array $workflowsNotNeeded = ['npm-publish.yml'];
+
 	public function __construct(string $organization, string $token) {
 		$this->organization = $organization;
 
@@ -112,6 +116,12 @@ class Tool
 				}
 			}
 			foreach ($workflows as $workflow) {
+				if (
+					(in_array($workflow, $this->workflowsOnlyForBundled) && !in_array($repo['name'], $this->bundled)) ||
+					(in_array($workflow, $this->workflowsNotNeeded))
+				) {
+					continue;
+				}
 				if (
 					!$this->client->api('repo')->contents()->exists($repo['owner']['login'], $repo['name'], '.github/workflows/'.$workflow, 'master') &&
 					!$this->client->api('repo')->contents()->exists($repo['owner']['login'], $repo['name'], '.github/workflows/'.$workflow, 'main')
