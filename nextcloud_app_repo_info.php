@@ -17,9 +17,7 @@ class Tool
 
 	private array $bundled = ['activity', 'circles', 'files_pdfviewer', 'files_rightclick', 'files_videoplayer', 'firstrunwizard', 'logreader', 'nextcloud_announcements', 'notifications', 'password_policy', 'photos', 'privacy', 'recommendations', 'serverinfo', 'support', 'survey_client', 'text', 'viewer'];
 
-	private array $workflowsOnlyForBundled = ['block-merge-eol.yml', 'block-merge-freeze.yml'];
-
-	private array $workflowsNotNeeded = ['npm-publish.yml'];
+	private array $workflowConditions;
 
 	public function __construct(string $organization, string $token) {
 		$this->organization = $organization;
@@ -32,6 +30,13 @@ class Tool
 		$this->client->authenticate($token, '', Github\AuthMethod::ACCESS_TOKEN);
 
 		$this->paginator = new Github\ResultPager($this->client);
+
+		$this->workflowConditions = [
+			'node.yml' => fn (array $repo) => $this->fileExists($repo, 'package.json'),
+			'npm-publish.yml' => fn (array $repo) => false,
+			'block-merge-eol.yml' => fn (array $repo) => $repo['bundled'],
+			'block-merge-freeze.yml' => fn (array $repo) => $repo['bundled'],
+		];
 	}
 
 	public function getWorkflows(): array
@@ -97,7 +102,9 @@ class Tool
 			}
 			if (in_array($repo['name'], $this->bundled)) {
 				echo "* Bundled app\n";
+				$repo['bundled'] = true;
 			} else {
+				$repo['bundled'] = false;
 				try {
 					$lastRelease = $this->client->api('repo')->releases()->latest($repo['owner']['login'], $repo['name']);
 					$appInfo = $this->getAppInfo($repo['owner']['login'], $repo['name'], $lastRelease['tag_name']);
@@ -116,25 +123,33 @@ class Tool
 				}
 			}
 			foreach ($workflows as $workflow) {
-				if (
-					(in_array($workflow, $this->workflowsOnlyForBundled) && !in_array($repo['name'], $this->bundled)) ||
-					(in_array($workflow, $this->workflowsNotNeeded))
-				) {
+				if (isset($this->workflowConditions[$workflow]) && !$this->workflowConditions[$workflow]($repo)) {
 					continue;
 				}
-				if (
-					!$this->client->api('repo')->contents()->exists($repo['owner']['login'], $repo['name'], '.github/workflows/'.$workflow, 'master') &&
-					!$this->client->api('repo')->contents()->exists($repo['owner']['login'], $repo['name'], '.github/workflows/'.$workflow, 'main')
-				) {
+				if (!$this->fileExists($repo, '.github/workflows/'.$workflow)) {
 					echo "* $workflow is missing\n";
 				}
+			}
+			if ($this->fileExists($repo, 'appinfo/app.php')) {
+				echo "* Deprecated appinfo/app.php is still used\n";
 			}
 		}
 	}
 
-	public function getAppInfo (string $org, string $app, string $reference): SimpleXMLElement {
+	private function getAppInfo (string $org, string $app, string $reference): SimpleXMLElement {
 		$fileContent = $this->client->api('repo')->contents()->download($org, $app, 'appinfo/info.xml', $reference);
 		return new SimpleXMLElement($fileContent);
+	}
+
+	private function fileExists (array $repo, string $filePath, array $branches = ['master', 'main']): bool {
+		foreach ($branches as $branch) {
+			if (
+				$this->client->api('repo')->contents()->exists($repo['owner']['login'], $repo['name'], $filePath, $branch)
+			) {
+				return true;
+			}
+		}
+		return false;
 	}
 }
 
