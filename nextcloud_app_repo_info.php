@@ -33,9 +33,12 @@ class Tool
 
 		$this->workflowConditions = [
 			'node.yml' => fn (array $repo) => $this->fileExists($repo, 'package.json'),
+			'lint-eslint.yml' => fn (array $repo) => $this->fileExists($repo, 'package.json'),
+			'lint-stylelint.yml' => fn (array $repo) => $this->fileExists($repo, 'package.json'),
 			'npm-publish.yml' => fn (array $repo) => false,
 			'block-merge-eol.yml' => fn (array $repo) => $repo['bundled'],
 			'block-merge-freeze.yml' => fn (array $repo) => $repo['bundled'],
+			'appstore-build-publish.yml' => fn (array $repo) => !$repo['bundled'],
 		];
 	}
 
