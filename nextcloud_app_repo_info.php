@@ -32,6 +32,7 @@ class Tool
 		$this->paginator = new Github\ResultPager($this->client);
 
 		$this->workflowConditions = [
+			'command-compile.yml' => fn (array $repo) => $this->fileExists($repo, 'package.json'),
 			'node.yml' => fn (array $repo) => $this->fileExists($repo, 'package.json'),
 			'lint-eslint.yml' => fn (array $repo) => $this->fileExists($repo, 'package.json'),
 			'lint-stylelint.yml' => fn (array $repo) => $this->fileExists($repo, 'package.json'),
