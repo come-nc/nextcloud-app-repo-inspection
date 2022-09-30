@@ -85,6 +85,21 @@ class Tool
 		return $repositories;
 	}
 
+	protected function checkBranchVersion(array $repo, string $branch): void
+	{
+		try {
+			$this->client->api('repo')->branches($repo['owner']['login'], $repo['name'], $branch);
+			$appInfo = $this->getAppInfo($repo['owner']['login'], $repo['name'], $branch);
+			echo "* {$branch}: version {$appInfo->version} (Nextcloud {$appInfo->dependencies->nextcloud['min-version']} to {$appInfo->dependencies->nextcloud['max-version']})\n";
+		} catch (Github\Exception\RuntimeException $e) {
+			if ($e->getMessage() === 'Branch not found') {
+				echo "* Branch {$branch} is missing\n";
+			} else {
+				throw $e;
+			}
+		}
+	}
+
 	public function run($argv): void
 	{
 		$workflows = $this->getWorkflows();
@@ -93,17 +108,8 @@ class Tool
 
 		foreach ($repositories as $repo) {
 			echo "\n# {$repo['name']} (Created: {$repo['created_at']}, Last push: {$repo['pushed_at']})\n";
-			try {
-				$this->client->api('repo')->branches($repo['owner']['login'], $repo['name'], 'stable24');
-				$appInfo = $this->getAppInfo($repo['owner']['login'], $repo['name'], 'stable24');
-				echo "* stable24: version {$appInfo->version} (Nextcloud {$appInfo->dependencies->nextcloud['min-version']} to {$appInfo->dependencies->nextcloud['max-version']})\n";
-			} catch (Github\Exception\RuntimeException $e) {
-				if ($e->getMessage() === 'Branch not found') {
-					echo "* Branch stable24 is missing\n";
-				} else {
-					throw $e;
-				}
-			}
+			$this->checkBranchVersion($repo, 'stable24');
+			$this->checkBranchVersion($repo, 'stable25');
 			if (in_array($repo['name'], $this->bundled)) {
 				echo "* Bundled app\n";
 				$repo['bundled'] = true;
